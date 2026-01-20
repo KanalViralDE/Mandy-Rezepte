@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mandy's Rezepte</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Meine Rezepte">
+    
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍳</text></svg>">
+
+    <style>
+        :root { --primary: #ff6b6b; --danger: #ff4757; --bg: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: var(--bg); color: #333; }
+        header { background: white; padding: 20px; text-align: center; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 10; }
+        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
+        .container { padding: 15px; max-width: 600px; margin: auto; }
+        .recipe-list { list-style: none; padding: 0; }
+        .recipe-item { 
+            background: white; margin-bottom: 12px; padding: 15px; 
+            border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .recipe-name { flex-grow: 1; cursor: pointer; font-weight: 500; font-size: 1.1rem; }
+        .delete-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; }
+        #detail-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 20; overflow-y: auto; }
+        #detail-view img { width: 100%; display: block; }
+        .back-btn { position: fixed; top: 20px; left: 20px; background: white; border: none; padding: 10px 15px; border-radius: 20px; font-weight: bold; z-index: 30; }
+        .add-section { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #eee; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        .add-btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-size: 1rem; font-weight: bold; }
+        .info-text { font-size: 0.8rem; color: #777; margin-top: 5px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div id="main-view">
+        <header><h1>🍴 Mandy's Screenshots</h1></header>
+        <div class="container">
+            <div class="add-section">
+                <input type="text" id="recipe-name" placeholder="Name des Rezepts...">
+                <input type="file" id="recipe-file" accept="image/*">
+                <button class="add-btn" onclick="processAndSave()">Hinzufügen & Komprimieren</button>
+                <p class="info-text">Bilder werden automatisch optimiert.</p>
+            </div>
+            <ul id="recipe-list" class="recipe-list"></ul>
+        </div>
+    </div>
+
+    <div id="detail-view">
+        <button class="back-btn" onclick="closeDetail()">← Zurück</button>
+        <img id="full-image" src="" alt="Rezept">
+    </div>
+
+    <script>
+        let recipes = JSON.parse(localStorage.getItem('myRecipes')) || [];
+
+        function renderList() {
+            const listElement = document.getElementById('recipe-list');
+            listElement.innerHTML = '';
+            recipes.forEach((recipe, index) => {
+                const li = document.createElement('li');
+                li.className = 'recipe-item';
+                li.innerHTML = `<div class="recipe-name" onclick="openDetail(${index})">${recipe.name}</div>
+                                <button class="delete-btn" onclick="deleteRecipe(${index})">🗑️</button>`;
+                listElement.appendChild(li);
+            });
+        }
+
+        function processAndSave() {
+            const nameInput = document.getElementById('recipe-name');
+            const fileInput = document.getElementById('recipe-file');
+            const file = fileInput.files[0];
+            if (!nameInput.value || !file) { alert("Bitte Name und Bild eingeben!"); return; }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1000;
+                    let width = img.width, height = img.height;
+                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    recipes.push({ name: nameInput.value, image: dataUrl });
+                    try {
+                        localStorage.setItem('myRecipes', JSON.stringify(recipes));
+                        nameInput.value = ''; fileInput.value = ''; renderList();
+                    } catch (e) { alert("Speicher voll!"); }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function deleteRecipe(index) {
+            if (confirm("Löschen?")) {
+                recipes.splice(index, 1);
+                localStorage.setItem('myRecipes', JSON.stringify(recipes));
+                renderList();
+            }
+        }
+
+        function openDetail(index) {
+            document.getElementById('full-image').src = recipes[index].image;
+            document.getElementById('detail-view').style.display = 'block';
+        }
+
+        function closeDetail() { document.getElementById('detail-view').style.display = 'none'; }
+        renderList();
+    </script>
+</body>
+</html>
